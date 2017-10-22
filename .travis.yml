@@ -5,22 +5,19 @@ sudo: required
 install:
   - docker run --rm --privileged multiarch/qemu-user-static:register
   
-script:
-# Download
-  - git clone https://github.com/docker-library/ghost
-  - curl -L -o qemu-arm-static.tar.gz https://github.com/multiarch/qemu-user-static/releases/download/v2.6.0/qemu-arm-static.tar.gz && tar zx -f qemu-arm-static.tar.gz -C ghost/1/alpine
-# Build
-  - patch ghost/1/debian/Dockerfile Dockerfile.patch
-  - docker build -t pvardanega/rpi-ghost rpi-ghost
-# Check
-  - docker images
-  - docker run --rm pvardanega/rpi-ghost
-    
-after_success:
-  - if [ "$TRAVIS_BRANCH" == "master" ]; then
-      docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD" ;
-      docker push pvardanega/rpi-ghost ;
-      #VERSION=$(docker run --rm pvardanega/rpi-ghost --version ${OPTIONS} 2>&1 | grep "${IMAGE}, version" | egrep -o "[0-9]+\.[0-9]+\.[0-9]+") ;
-      #docker tag pvardanega/rpi-ghost:${VERSION} ;
-      #docker push pvardanega/rpi-ghost:${VERSION} ;
-    fi
+jobs:
+  include:
+    - stage: Build image
+      script:
+        - git clone https://github.com/docker-library/ghost
+        - curl -L -o qemu-arm-static.tar.gz https://github.com/multiarch/qemu-user-static/releases/download/v2.6.0/qemu-arm-static.tar.gz && tar zx -f qemu-arm-static.tar.gz -C ghost/1/debian
+        - patch ghost/1/debian/Dockerfile Dockerfile.patch
+        - travis_wait 60 docker build -t pvardanega/rpi-ghost ghost/1/debian/
+    - stage: Push image
+      script:
+        - docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+        - docker push pvardanega/rpi-ghost
+        #VERSION=$(docker run --rm pvardanega/rpi-ghost --version ${OPTIONS} 2>&1 | grep "${IMAGE}, version" | egrep -o "[0-9]+\.[0-9]+\.[0-9]+") ;
+        #docker tag pvardanega/rpi-ghost:${VERSION} ;
+        #docker push pvardanega/rpi-ghost:${VERSION} ;
+      if: branch = master
